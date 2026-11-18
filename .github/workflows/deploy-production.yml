@@ -136,13 +136,26 @@ jobs:
           cp "${app_response}" "${app_json}"
           previous_deployment="$(jq -r '.app.active_deployment.id // empty' "${app_json}")"
           echo "previous_deployment=${previous_deployment}" >> "${GITHUB_OUTPUT}"
+          component_name="$(jq -r '.app.spec.static_sites | if length == 1 then .[0].name else empty end' "${app_json}")"
+          if [[ -z "${component_name}" ]]; then
+            echo 'Expected exactly one Static Site component in the App Spec.' >&2
+            exit 1
+          fi
+          echo "component_name=${component_name}" >> "${GITHUB_OUTPUT}"
+          echo 'Current Static Site sources:'
+          jq -r '.app.spec.static_sites[]? | [.name, (.github.branch // .git.branch // "NO_BRANCH")] | @tsv' "${app_json}"
 
           branch="deploy/frontend-${INPUT_SHA}"
-          jq --arg branch "${branch}" \
+          jq --arg branch "${branch}" --arg component "${component_name}" \
             '{spec: (.app.spec
               | .static_sites = (.static_sites | map(
-                  if .name == "frontend"
-                  then .github.branch = $branch | .github.deploy_on_push = false
+                  if .name == $component
+                  then if .github
+                       then .github.branch = $branch | .github.deploy_on_push = false
+                       elif .git
+                       then .git.branch = $branch | .git.deploy_on_push = false
+                       else .
+                       end
                   else .
                   end))) }' "${app_json}" > "${payload}"
 
@@ -162,6 +175,12 @@ jobs:
             exit 1
           fi
           jq -e --arg app_id "${APP_ID}" '.app.id == $app_id' "${response}" > /dev/null
+          updated_branch="$(jq -r --arg component "${component_name}" '.app.spec.static_sites[]? | select(.name == $component) | (.github.branch // .git.branch // "")' "${response}")"
+          echo "App Platform source after update: ${updated_branch:-NO_BRANCH}"
+          if [[ "${updated_branch}" != "${branch}" ]]; then
+            echo "App Platform did not retain the requested branch ${branch}." >&2
+            exit 1
+          fi
           echo "Static Site source updated to ${branch}."
       - name: Wait for exact frontend deployment
         env:
@@ -169,6 +188,7 @@ jobs:
           DO_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
           INPUT_SHA: ${{ needs.validate.outputs.commit_sha }}
           PREVIOUS_DEPLOYMENT: ${{ steps.app_update.outputs.previous_deployment }}
+          COMPONENT_NAME: ${{ steps.app_update.outputs.component_name }}
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -208,7 +228,8 @@ jobs:
                 -H "Authorization: Bearer ${DO_TOKEN}" \
                 -H 'Accept: application/json' \
                 "https://api.digitalocean.com/v2/apps/${APP_ID}" \
-                | jq -r --arg component frontend '.app.spec.static_sites[] | select(.name == $component) | .github.branch')"
+                | jq -r --arg component "${COMPONENT_NAME}" '.app.spec.static_sites[]? | select(.name == $component) | (.github.branch // .git.branch // "")')"
+              echo "Verification: branch=${active_branch:-NO_BRANCH}, branch_sha=${branch_sha}"
               if [[ "${branch_sha}" != "${INPUT_SHA}" || "${active_branch}" != "${branch}" ]]; then
                 echo "Active Static Site source does not match immutable branch ${branch}." >&2
                 exit 1
