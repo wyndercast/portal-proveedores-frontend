@@ -169,6 +169,8 @@ jobs:
           DO_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
           INPUT_SHA: ${{ needs.validate.outputs.commit_sha }}
           PREVIOUS_DEPLOYMENT: ${{ steps.app_update.outputs.previous_deployment }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           for attempt in {1..60}; do
@@ -194,11 +196,28 @@ jobs:
               exit 1
             fi
             if [[ "${phase}" == 'ACTIVE' ]]; then
-              if [[ "${source_sha}" != "${INPUT_SHA}" ]]; then
+              if [[ -n "${source_sha}" && "${source_sha}" != "${INPUT_SHA}" ]]; then
                 echo "Published source SHA ${source_sha} does not match requested SHA ${INPUT_SHA}." >&2
                 exit 1
               fi
-              echo 'Static Site deployment matches the requested SHA.'
+              branch="deploy/frontend-${INPUT_SHA}"
+              branch_sha="$(gh api \
+                "/repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" \
+                --jq '.object.sha')"
+              active_branch="$(curl --fail-with-body --silent --show-error \
+                -H "Authorization: Bearer ${DO_TOKEN}" \
+                -H 'Accept: application/json' \
+                "https://api.digitalocean.com/v2/apps/${APP_ID}" \
+                | jq -r --arg component frontend '.app.spec.static_sites[] | select(.name == $component) | .github.branch')"
+              if [[ "${branch_sha}" != "${INPUT_SHA}" || "${active_branch}" != "${branch}" ]]; then
+                echo "Active Static Site source does not match immutable branch ${branch}." >&2
+                exit 1
+              fi
+              if [[ -z "${source_sha}" ]]; then
+                echo 'DigitalOcean did not expose source_commit_hash; immutable branch and active App Spec source verified.'
+              else
+                echo 'Static Site deployment matches the requested SHA.'
+              fi
               exit 0
             fi
             sleep 10
