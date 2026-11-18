@@ -1,1 +1,78 @@
-/* You can add global styles to this file, and also import other style files */
+@use "tailwindcss";
+@import "primeicons/primeicons.css";
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #f4f7fb;
+  color: #172033;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgb(13 148 136 / 24%);
+  outline-offset: 2px;
+}
+
+:root {
+  --ui-ink: #0c1b3b;
+  --ui-muted: #5d6f90;
+  --ui-primary: #087f7b;
+  --ui-primary-hover: #066a67;
+  --ui-accent: #7c3aed;
+  --ui-border: #dce5f0;
+  --ui-bg: #f5f7fb;
+  --ui-surface: #ffffff;
+  --ui-info-bg: #eaf2ff;
+  --portal-navy: #102657;
+  --portal-navy-soft: #24437d;
+  --portal-teal: #087f83;
+  --portal-teal-bright: #0b9da1;
+  --portal-purple: #873fe7;
+  --portal-cyan: #13c6e8;
+  --portal-surface: #ffffff;
+  --portal-background: #f5f8fc;
+}
+
+.portal-header {
+  align-items: center;
+  background: rgb(255 255 255 / 94%);
+  border-bottom: 1px solid #e4eaf3;
+  box-shadow: 0 .35rem 1rem rgb(16 38 87 / 6%);
+  display: flex;
+  justify-content: space-between;
+  min-height: 4.2rem;
+  padding: .7rem clamp(.9rem, 4vw, 2rem);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.portal-brand { align-items: center; color: var(--portal-navy); display: inline-flex; gap: .6rem; min-width: 0; }
+.portal-brand img { display: block; height: 2.35rem; object-fit: contain; width: 2.35rem; }
+.portal-brand-copy { display: grid; line-height: 1.05; }
+.portal-brand-copy strong { font-size: .98rem; letter-spacing: -.02em; }
+.portal-brand-copy small { color: var(--portal-navy-soft); font-size: .62rem; font-weight: 700; margin-top: .2rem; }
+.portal-footer { color: #65759b; font-size: .72rem; padding: 1rem; text-align: center; }
+.planned-work-page .portal-footer { padding-bottom: 5.5rem; }
+.supporting-copy { color: var(--ui-muted); font-size: .85rem; letter-spacing: .01em; line-height: 1.5; }
+.portal-footer strong { color: var(--portal-navy); }
+.portal-accent { height: .35rem; left: 0; overflow: hidden; position: absolute; right: 0; top: 0; }
+.portal-accent::after { background: linear-gradient(90deg, transparent 0 55%, var(--portal-purple) 70%, var(--portal-cyan)); content: ''; height: 100%; position: absolute; right: -8%; transform: skewX(-28deg); width: 38%; }

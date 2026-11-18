@@ -1,0 +1,15 @@
+# PLANTILLA NO DESPLEGABLE.
+# Sustituir todos los valores REPLACE_ME y validar la fijación de revisión Git.
+# No contiene repositorio, región ni dominio reales.
+name: REPLACE_ME_frontend_app
+region: REPLACE_ME_region
+
+static_sites:
+  - name: frontend
+    github:
+      repo: REPLACE_ME_ORGANIZATION/REPLACE_ME_FRONTEND_REPOSITORY
+      branch: main
+      deploy_on_push: false
+    build_command: npm ci && npm run build -- --configuration production
+    output_dir: dist/frontend/browser
+    catchall_document: index.html

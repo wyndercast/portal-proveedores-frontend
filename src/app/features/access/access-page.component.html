@@ -1,0 +1,32 @@
+<main class="access-page">
+  <section class="access-card" aria-labelledby="access-title">
+    <div class="brand-mark"><img src="assets/logo-optimussystem.png" alt="OptimusSystem" /></div>
+    <p class="eyebrow">VALUEKEEP</p>
+    <h1 id="access-title">Portal de proveedores</h1>
+    <p class="brand-subtitle">by OptimusSystem</p>
+    <p class="description supporting-copy">Accede a la orden de trabajo ingresando sus datos de identificación.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label for="workOrderNumber">Número de OT</label>
+      <input id="workOrderNumber" type="text" formControlName="workOrderNumber" autocomplete="off" />
+      @if (form.controls.workOrderNumber.touched && form.controls.workOrderNumber.invalid) {
+        <small>Ingresa el número de OT.</small>
+      }
+
+      <label for="workerCode">Código de proveedor</label>
+      <input id="workerCode" type="text" formControlName="workerCode" autocomplete="off" />
+      @if (form.controls.workerCode.touched && form.controls.workerCode.invalid) {
+        <small>Ingresa tu código de proveedor.</small>
+      }
+
+      @if (errorMessage) {
+        <p class="error" role="alert">{{ errorMessage }}</p>
+      }
+
+      <button type="submit" [disabled]="loading">
+        <i class="pi" [class.pi-spin]="loading" [class.pi-spinner]="loading" [class.pi-sign-in]="!loading"></i>
+        {{ loading ? 'Validando…' : 'Ingresar a la OT' }}
+      </button>
+    </form>
+  </section>
+</main>

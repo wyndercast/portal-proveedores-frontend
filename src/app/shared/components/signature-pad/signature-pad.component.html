@@ -1,0 +1,4 @@
+<div class="signature-pad-wrapper">
+  <span class="signature-label">{{ label }}</span>
+  <canvas #canvas aria-label="Área para dibujar la firma" (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)" (pointerup)="pointerUp($event)" (pointercancel)="pointerUp($event)" (pointerleave)="pointerUp($event)"></canvas>
+</div>

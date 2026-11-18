@@ -1,27 +1,35 @@
-# Frontend
+# Frontend — Portal de Proveedores
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.2.3.
+Aplicación Angular existente del Portal de Servicios para Proveedores.
 
-## Development server
+## Tecnología base
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+- Angular 22.2.x
+- TypeScript 6.0.3
+- PrimeNG 22.1.4
+- Tailwind CSS 4.1.12
+- Node.js 22.22.3 para CI
 
-## Code scaffolding
+## Desarrollo local
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+Ejecuta:
 
-## Build
+```bash
+npm ci
+npm start
+```
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+Abre `http://localhost:4200/`. La URL local de la API se define en `src/environments/environment.ts`.
 
-## Running unit tests
+## Compilación y pruebas
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+```bash
+npm test -- --watch=false --browsers=ChromeHeadless
+npm run build -- --configuration production
+```
 
-## Running end-to-end tests
+El build de producción usa `environment.production.ts`. Su URL de API contiene un marcador pendiente hasta que exista el dominio público real del backend.
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+Los artefactos se generan en `dist/frontend`; el contenido estático se publica desde el directorio browser correspondiente.
 
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+La CI valida cada SHA sin desplegar. El CD es manual y permanece bloqueado hasta demostrar que DigitalOcean Static Site construye exactamente el SHA solicitado.
