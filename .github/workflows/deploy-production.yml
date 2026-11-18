@@ -33,13 +33,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate commit belongs to main
+      - name: Validate commit belongs to master
         env:
           INPUT_SHA: ${{ inputs.commit_sha }}
         run: |
-          git fetch origin main --depth=1
+          git fetch origin master --depth=1
           git cat-file -e "${INPUT_SHA}^{commit}"
-          git merge-base --is-ancestor "${INPUT_SHA}" origin/main
+          git merge-base --is-ancestor "${INPUT_SHA}" origin/master
       - name: Verify successful CI for exact SHA
         env:
           GH_TOKEN: ${{ github.token }}
@@ -47,7 +47,7 @@ jobs:
         run: |
           result="$(gh api --paginate \
             -H 'Accept: application/vnd.github+json' \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?event=push&branch=main&head_sha=${INPUT_SHA}" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?event=push&branch=master&head_sha=${INPUT_SHA}" \
             --jq '[.workflow_runs[] | select(.head_sha == "'"${INPUT_SHA}"'") | select(.status == "completed" and .conclusion == "success")] | length' \
             | tail -n 1)"
           if [[ "${result}" != '1' ]]; then
