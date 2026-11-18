@@ -1,14 +1,15 @@
 # PLANTILLA NO DESPLEGABLE.
 # Sustituir todos los valores REPLACE_ME y validar la fijación de revisión Git.
 # No contiene repositorio, región ni dominio reales.
-name: REPLACE_ME_frontend_app
-region: REPLACE_ME_region
+name: portal-proveedores-frontend
+# App Platform uses the NYC region slug; NYC3 is a datacenter slug.
+region: nyc
 
 static_sites:
   - name: frontend
     github:
-      repo: REPLACE_ME_ORGANIZATION/REPLACE_ME_FRONTEND_REPOSITORY
-      branch: main
+      repo: wyndercast/portal-proveedores-frontend
+      branch: master
       deploy_on_push: false
     build_command: npm ci && npm run build -- --configuration production
     output_dir: dist/frontend/browser
