@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -17,9 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate-and-block:
+  validate:
     runs-on: ubuntu-latest
-    environment: production
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
     steps:
       - name: Validate input format
         env:
@@ -34,12 +35,14 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate commit belongs to master
+        id: commit
         env:
           INPUT_SHA: ${{ inputs.commit_sha }}
         run: |
           git fetch origin master --depth=1
           git cat-file -e "${INPUT_SHA}^{commit}"
           git merge-base --is-ancestor "${INPUT_SHA}" origin/master
+          echo "sha=${INPUT_SHA}" >> "${GITHUB_OUTPUT}"
       - name: Verify successful CI for exact SHA
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,18 +57,158 @@ jobs:
             echo "No successful Frontend CI run found for ${INPUT_SHA}." >&2
             exit 1
           fi
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
       - name: Checkout exact validated commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ needs.validate.outputs.commit_sha }}
+          fetch-depth: 0
       - name: Block placeholder API URL
         run: |
           if grep -R "REPLACE_WITH_BACKEND_PUBLIC_URL" -n src/environments; then
             echo 'Production API URL is still a placeholder; deployment is blocked.' >&2
             exit 1
           fi
-      - name: Block until exact-SHA Static Site mechanism is proven
+      - name: Validate production secrets
+        env:
+          APP_ID: ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }}
+          DO_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
         run: |
-          echo 'DigitalOcean Static Site exact-SHA deployment is a documented technical blocker.' >&2
-          echo 'This workflow intentionally performs no deployment and cannot report success.' >&2
+          if [[ ! "${APP_ID}" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo 'DIGITALOCEAN_FRONTEND_APP_ID must be a UUID.' >&2
+            exit 1
+          fi
+          if [[ -z "${DO_TOKEN}" ]]; then
+            echo 'Missing production secret: DIGITALOCEAN_API_TOKEN' >&2
+            exit 1
+          fi
+      - name: Create or verify immutable deployment branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SHA: ${{ needs.validate.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          branch="deploy/frontend-${INPUT_SHA}"
+          ref="refs/heads/${branch}"
+          if gh api "/repos/${GITHUB_REPOSITORY}/git/ref/${ref#refs/}" > /tmp/deployment-ref.json 2>/dev/null; then
+            existing_sha="$(jq -r '.object.sha' /tmp/deployment-ref.json)"
+            if [[ "${existing_sha}" != "${INPUT_SHA}" ]]; then
+              echo "Deployment branch ${branch} points to an unexpected SHA." >&2
+              exit 1
+            fi
+          else
+            gh api --method POST \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f "ref=${ref}" \
+              -f "sha=${INPUT_SHA}" > /dev/null
+          fi
+          echo "Using ${branch} for exact SHA ${INPUT_SHA}."
+      - name: Update App Platform Static Site source
+        id: app_update
+        env:
+          APP_ID: ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }}
+          DO_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
+          INPUT_SHA: ${{ needs.validate.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          app_response="$(mktemp)"
+          app_json="$(mktemp)"
+          payload="$(mktemp)"
+          trap 'rm -f "${app_response}" "${app_json}" "${payload}"' EXIT
+
+          app_http_code="$(curl --silent --show-error \
+            -H "Authorization: Bearer ${DO_TOKEN}" \
+            -H 'Accept: application/json' \
+            --output "${app_response}" \
+            --write-out '%{http_code}' \
+            "https://api.digitalocean.com/v2/apps/${APP_ID}")"
+          if [[ "${app_http_code}" != 2* ]]; then
+            echo "DigitalOcean app lookup failed with HTTP ${app_http_code}:" >&2
+            jq -c . "${app_response}" 2>/dev/null || cat "${app_response}"
+            exit 1
+          fi
+          cp "${app_response}" "${app_json}"
+          previous_deployment="$(jq -r '.app.active_deployment.id // empty' "${app_json}")"
+          echo "previous_deployment=${previous_deployment}" >> "${GITHUB_OUTPUT}"
+
+          branch="deploy/frontend-${INPUT_SHA}"
+          jq --arg branch "${branch}" \
+            '{spec: (.app.spec
+              | .static_sites = (.static_sites | map(
+                  if .name == "frontend"
+                  then .github.branch = $branch | .github.deploy_on_push = false
+                  else .
+                  end))) }' "${app_json}" > "${payload}"
+
+          response="$(mktemp)"
+          trap 'rm -f "${app_response}" "${app_json}" "${payload}" "${response}"' EXIT
+          http_code="$(curl --silent --show-error --request PUT \
+            -H "Authorization: Bearer ${DO_TOKEN}" \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            --data-binary "@${payload}" \
+            --output "${response}" \
+            --write-out '%{http_code}' \
+            "https://api.digitalocean.com/v2/apps/${APP_ID}")"
+          if [[ "${http_code}" != 2* ]]; then
+            echo "DigitalOcean Static Site update failed with HTTP ${http_code}:" >&2
+            jq -c . "${response}" 2>/dev/null || cat "${response}"
+            exit 1
+          fi
+          jq -e --arg app_id "${APP_ID}" '.app.id == $app_id' "${response}" > /dev/null
+          echo "Static Site source updated to ${branch}."
+      - name: Wait for exact frontend deployment
+        env:
+          APP_ID: ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }}
+          DO_TOKEN: ${{ secrets.DIGITALOCEAN_API_TOKEN }}
+          INPUT_SHA: ${{ needs.validate.outputs.commit_sha }}
+          PREVIOUS_DEPLOYMENT: ${{ steps.app_update.outputs.previous_deployment }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            deployment="$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${DO_TOKEN}" \
+              -H 'Accept: application/json' \
+              "https://api.digitalocean.com/v2/apps/${APP_ID}/deployments?per_page=1" \
+              | jq -r '.deployments[0].id // empty')"
+            if [[ -z "${deployment}" || "${deployment}" == "${PREVIOUS_DEPLOYMENT}" ]]; then
+              echo 'Waiting for the new Static Site deployment to be created.'
+              sleep 10
+              continue
+            fi
+            deployment_json="$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer ${DO_TOKEN}" \
+              -H 'Accept: application/json' \
+              "https://api.digitalocean.com/v2/apps/${APP_ID}/deployments/${deployment}")"
+            phase="$(jq -r '.deployment.phase // empty' <<< "${deployment_json}")"
+            source_sha="$(jq -r '.deployment.source_commit_hash // empty' <<< "${deployment_json}")"
+            echo "Deployment ${deployment}: phase=${phase:-PENDING}, source=${source_sha:-PENDING}"
+            if [[ "${phase}" == 'ERROR' || "${phase}" == 'CANCELED' ]]; then
+              echo "Static Site deployment failed with phase ${phase}." >&2
+              exit 1
+            fi
+            if [[ "${phase}" == 'ACTIVE' ]]; then
+              if [[ "${source_sha}" != "${INPUT_SHA}" ]]; then
+                echo "Published source SHA ${source_sha} does not match requested SHA ${INPUT_SHA}." >&2
+                exit 1
+              fi
+              echo 'Static Site deployment matches the requested SHA.'
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Timed out waiting for the Static Site deployment.' >&2
           exit 1
+      - name: Verify frontend is reachable
+        env:
+          FRONTEND_PUBLIC_URL: https://portal-provedores-frontend-ofzfq.ondigitalocean.app
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error "${FRONTEND_PUBLIC_URL}/" > /dev/null
+          echo 'Frontend availability check passed.'

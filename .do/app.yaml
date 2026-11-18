@@ -1,6 +1,5 @@
-# PLANTILLA NO DESPLEGABLE.
-# Sustituir todos los valores REPLACE_ME y validar la fijación de revisión Git.
-# No contiene repositorio, región ni dominio reales.
+# App Platform specification for the frontend Static Site.
+# Production deployment is controlled by the GitHub Actions workflow.
 name: portal-proveedores-frontend
 # App Platform uses the NYC region slug; NYC3 is a datacenter slug.
 region: nyc
