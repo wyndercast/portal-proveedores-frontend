@@ -49,9 +49,11 @@ export class AccessPageComponent {
             ? 'No se pudo conectar con el backend. Verifica que esté ejecutándose en http://localhost:8080.'
             : error.status === 401
               ? 'El número de OT o el código del trabajador no coinciden con una autorización válida.'
-              : error.status === 403
-                ? 'El backend rechazó el origen de ngrok. Reinicia Spring Boot con la configuración CORS actualizada.'
-            : 'No fue posible autorizar el acceso a la orden solicitada.';
+              : error.status === 409
+                ? 'La OT está asignada a este proveedor, pero todavía no está habilitada para iniciar el servicio porque se encuentra en un estado previo.'
+                : error.status === 403
+                  ? 'El backend rechazó el origen de ngrok. Reinicia Spring Boot con la configuración CORS actualizada.'
+                  : 'No fue posible autorizar el acceso a la orden solicitada.';
         const code = error.error?.code;
         const detail = code === 'VALUEKEEP_AUTH'
           ? 'Valuekeep rechazó la autenticación. Revisa las credenciales OAuth2 del backend.'
@@ -61,11 +63,15 @@ export class AccessPageComponent {
               ? 'El backend respondió, pero Valuekeep no pudo completar la consulta. Revisa credenciales, URL y conectividad del contenedor.'
               : error.status === 401
                 ? this.errorMessage
-                : error.status === 403
+                : error.status === 409
                   ? this.errorMessage
-          : this.errorMessage;
-        const backendDetail = typeof error.error?.detail === 'string' ? ` ${error.error.detail}` : '';
-        this.messages.add({ severity: 'error', summary: code?.startsWith('VALUEKEEP_') ? `Valuekeep (${code})` : error.status === 502 ? 'Valuekeep no disponible' : 'No se pudo autorizar', detail: `${detail}${backendDetail}`, life: 7000 });
+                  : error.status === 403
+                    ? this.errorMessage
+                    : this.errorMessage;
+        const backendDetail = error.status === 401 || error.status === 409
+          ? ''
+          : typeof error.error?.detail === 'string' ? ` ${error.error.detail}` : '';
+        this.messages.add({ severity: 'error', summary: code === 'WORK_ORDER_STATE_NOT_AVAILABLE' ? 'OT aún no habilitada' : code?.startsWith('VALUEKEEP_') ? `Valuekeep (${code})` : error.status === 502 ? 'Valuekeep no disponible' : 'No se pudo autorizar', detail: `${detail}${backendDetail}`, life: 7000 });
         this.changeDetector.markForCheck();
       },
     });

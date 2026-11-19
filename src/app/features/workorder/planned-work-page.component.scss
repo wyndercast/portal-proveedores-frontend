@@ -25,6 +25,22 @@
 @media (max-width: 640px) { .planned-work-page { padding-inline: .75rem; } .page-header, .toolbar, .save-bar { align-items: stretch; flex-direction: column; } .task-heading { align-items: center; } .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem; } .summary span { font-size: .65rem; } .form-grid { grid-template-columns: 1fr; gap: .45rem; } .toolbar .secondary, .save-bar .primary { width: 100%; } .save-bar { gap: .5rem; padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom)); } .save-bar span { font-size: .82rem; } .custom-select-menu { max-height: 11rem; } }
 @media (max-width: 640px) { .task-modal textarea { font-size: 16px; } }
 
+@media (max-width: 640px) {
+  .modal-backdrop { align-items: flex-start; overflow-y: auto; padding: .75rem; }
+  .task-modal, .bulk-modal { max-height: calc(100dvh - 1.5rem); overflow-y: auto; }
+  .task-modal .form-grid { gap: .75rem; grid-template-columns: minmax(0, 1fr); }
+  .task-modal .form-grid > label, .remarks-field { min-width: 0; }
+  .task-modal .custom-select-menu, .bulk-modal .custom-select-menu {
+    max-height: min(12rem, 35dvh);
+    margin-top: .35rem;
+    position: static;
+    width: 100%;
+  }
+  .custom-select-option { min-height: 2.75rem; touch-action: manipulation; }
+  .task-modal textarea { box-sizing: border-box; min-height: 5.5rem; width: 100%; }
+  .modal-actions { flex-wrap: wrap; }
+}
+
 /* Visual system: compact mobile-first work order workspace. */
 .planned-work-page { background: linear-gradient(180deg, #f8fafc 0, #f1f5f9 100%); color: #172033; padding-top: clamp(1rem, 4vw, 2rem); }
 .back { align-items: center; display: inline-flex; gap: .4rem; color: #0f766e; font-size: .85rem; margin-bottom: .4rem; }
