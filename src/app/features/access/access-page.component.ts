@@ -43,6 +43,10 @@ export class AccessPageComponent {
         void this.router.navigateByUrl('/work-order');
       },
       error: error => {
+        const code = error.error?.code;
+        const stateDetail = code === 'WORK_ORDER_STATE_NOT_AVAILABLE' && typeof error.error?.detail === 'string'
+          ? error.error.detail
+          : 'La OT está asignada a este proveedor, pero actualmente se encuentra en un estado no habilitado para su consulta desde el portal.';
         this.errorMessage = error.name === 'TimeoutError'
           ? 'El servidor tardó demasiado en responder. Verifica que el backend y Valuekeep estén disponibles.'
           : error.status === 0
@@ -50,11 +54,10 @@ export class AccessPageComponent {
             : error.status === 401
               ? 'El número de OT o el código del trabajador no coinciden con una autorización válida.'
               : error.status === 409
-                ? 'La OT está asignada a este proveedor, pero todavía no está habilitada para iniciar el servicio porque se encuentra en un estado previo.'
+                ? stateDetail
                 : error.status === 403
                   ? 'El backend rechazó el origen de ngrok. Reinicia Spring Boot con la configuración CORS actualizada.'
                   : 'No fue posible autorizar el acceso a la orden solicitada.';
-        const code = error.error?.code;
         const detail = code === 'VALUEKEEP_AUTH'
           ? 'Valuekeep rechazó la autenticación. Revisa las credenciales OAuth2 del backend.'
           : code === 'VALUEKEEP_TIMEOUT'
